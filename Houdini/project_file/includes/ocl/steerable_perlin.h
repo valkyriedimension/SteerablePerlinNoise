@@ -7,7 +7,9 @@ float3 interp3(float3 x){
     return (float3)(interp(x.x), interp(x.y), interp(x.z));
 }
 
-
+float2 interp2(float2 x){
+    return (float2)(interp(x.x), interp(x.y));
+}
 
 float random3(float3 pos){
 
@@ -17,6 +19,14 @@ float random3(float3 pos){
     return x - floor(x);
 }
 
+
+float random2(float2 pos){
+
+    float _x;
+    
+    float x = sin(dot(pos, (float2)(12.9898f,78.233f))) * 43758.5453123f;
+    return (x - floor(x));
+}
 float3 random33(float3 pos){
     return (float3)(random3(pos + .01f), random3(pos + .02f), random3(pos + .03f));
 }
@@ -150,7 +160,8 @@ void generate_metric_2d(float2 aniso_dir,  float eigenvalue_sum, float k, mat2 *
     x.x *= (aniso_dir.x >= 0.0f ? 1.0f : -1.0f);
     x.y *= (aniso_dir.y >= 0.0f ? 1.0f : -1.0f);  
 
-    float2 evals =(float2)(0,1.0f);
+
+    float2 evals =(float2)(0, 1.0);
     float2 evec0, evec1;
     //eigenvectors of outerproduct(x, x) have a closed form solution:
 
@@ -240,6 +251,45 @@ float steerable_perlin_projected(float3 pos, mat2 metric, mat3 projection){
         
         //we get another level of anisotropy by introducing anisotropic weights to the algorithm       
         float w =  wv.x * wv.y * wv.z * interp(dot(v, metric_v));
+
+        out_val += d * w;
+
+    } 
+
+    return out_val;
+}
+
+float steerable_perlin_2d(float2 pos, mat2 metric){
+    float2 noise_p = floor(pos);
+    float2 noise_f = pos - noise_p;
+    
+    float out_val = 0.0;
+    
+    //perlin weights
+    float2 blend = interp2(noise_f);
+    
+    //we opt to use a weighted average instead of lerps.
+    //if we remove the anisotropy from the dot product and the interpolation
+    //the weighted average results in the same output as standard perlin noise.
+    for(int i = 0; i <= 1; i++)
+    for(int j = 0; j <= 1; j++){
+
+        float2 o = (float2)(i,j);
+        
+        float2 g = noise_p + o;
+        float2 r = (float2)(cos(random2(g) * 2.0f * PI), sin(random2(g) * 2.0f * PI));
+        float2 v = (o - noise_f);
+        
+        float2 metric_v = mat2vecmul(metric, v);
+        
+        //regular perlin is dot(r, v)
+        //applying the metric to v, adds one level of anisotropy
+        float d = dot(r, metric_v);
+        
+        float2 wv = fabs(o-blend);
+        
+        //we get another level of anisotropy by introducing anisotropic weights to the algorithm       
+        float w =  wv.x * wv.y *  interp(dot(v, metric_v));
 
         out_val += d * w;
 
